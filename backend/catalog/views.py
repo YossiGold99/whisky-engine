@@ -9,7 +9,5 @@ class DistilleryViewSet(viewsets.ModelViewSet):
 class WhiskyViewSet(viewsets.ModelViewSet):
     queryset = Whisky.objects.all()
     serializer_class = WhiskySerializer
-    # 1. This line turns on the DRF search engine
     filter_backends = [filters.SearchFilter]
-    # 2. This tells it exactly which fields to search through (including the distillery's region!)
-    search_fields = ['name', 'distillery__name', 'distillery__region', 'cask_type']
+    search_fields = ['name', 'distillery__name', 'distillery__region', 'distillery__country', 'cask_type']
