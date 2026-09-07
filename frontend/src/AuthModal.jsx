@@ -44,7 +44,39 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 setErrorMsg('Database connection failed. Is the server running?')
             }
         } else {
-            setErrorMsg('Registration endpoint is currently under construction.')
+            // The Registration Flow
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/register/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                })
+
+                const data = await response.json()
+
+                if (response.ok) {
+                    // Success! User is created and we got a token back instantly
+                    localStorage.setItem('vaultToken', data.token)
+                    console.log("New account created! Token:", data.token)
+
+                    if (onClose) onClose()
+                    if (onLoginSuccess) onLoginSuccess()
+
+                    setUsername('')
+                    setPassword('')
+                } else {
+                    // Django returns specific errors (e.g., username already exists)
+                    if (data.username) {
+                        setErrorMsg(data.username[0])
+                    } else {
+                        setErrorMsg('Registration failed. Please try a different username.')
+                    }
+                }
+            } catch (err) {
+                setErrorMsg('Database connection failed. Is the server running?')
+            }
         }
     }
 
