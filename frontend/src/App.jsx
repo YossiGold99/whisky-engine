@@ -4,20 +4,29 @@ import RadarChart from './RadarChart'
 function App() {
   const [whiskies, setWhiskies] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('') // New state for the live search
 
   useEffect(() => {
-    // Fetching data from our Django REST API endpoint
-    fetch('http://127.0.0.1:8000/api/whiskies/')
-      .then(response => response.json())
-      .then(data => {
-        setWhiskies(data)
-        setLoading(false)
-      })
-      .catch(error => {
-        console.error('Error fetching whisky data:', error)
-        setLoading(false)
-      })
-  }, [])
+    // 300ms delay debounce so it only searches AFTER you stop typing
+    const delayDebounceFn = setTimeout(() => {
+      setLoading(true)
+
+      // Fetching from Django with the search parameter appended
+      fetch(`http://127.0.0.1:8000/api/whiskies/?search=${searchTerm}`)
+        .then(response => response.json())
+        .then(data => {
+          setWhiskies(data)
+          setLoading(false)
+        })
+        .catch(error => {
+          console.error('Error fetching whisky data:', error)
+          setLoading(false)
+        })
+    }, 300)
+
+    // Cleanup the timeout if the user keeps typing
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchTerm]) // Re-runs every time the search term changes
 
   return (
     <div className="min-h-screen p-8">
@@ -27,7 +36,7 @@ function App() {
           What are you pouring <span className="text-amber-500">next?</span>
         </h1>
         <p className="font-mono text-sm text-slate-400 mb-8">
-          {loading ? "Connecting to Django Backend..." : `API Connection: Live (${whiskies.length} bottles indexed)`}
+          {loading ? "Querying database..." : `API Connection: Live (${whiskies.length} bottles indexed)`}
         </p>
 
         {/* Search Bar Component */}
@@ -36,6 +45,8 @@ function App() {
             type="text"
             placeholder="Search distillery, region, or cask style..."
             className="w-full bg-transparent border-none text-white px-4 py-2 focus:outline-none font-mono text-sm placeholder:text-slate-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)} // Updates state as you type
           />
           <button className="bg-amber-500 text-slate-900 px-6 py-2 rounded-xl font-bold hover:bg-amber-600 transition-all duration-300">
             Search
