@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import RadarChart from './RadarChart'
 import CollectorsVault from './CollectorsVault'
+import AuthModal from './AuthModal'
 
 function App() {
   const [whiskies, setWhiskies] = useState([])
@@ -8,6 +9,24 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeMatch, setActiveMatch] = useState(null)
   const [matchResults, setMatchResults] = useState([])
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  // State to track if the user is logged in
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  // Check local storage for the token when the app loads
+  useEffect(() => {
+    const token = localStorage.getItem('vaultToken')
+    if (token) {
+      setIsLoggedIn(true)
+    }
+  }, [])
+
+  // Handle signing out
+  const handleSignOut = () => {
+    localStorage.removeItem('vaultToken')
+    setIsLoggedIn(false)
+  }
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -27,18 +46,15 @@ function App() {
     return () => clearTimeout(delayDebounceFn)
   }, [searchTerm])
 
-  // The Smart Match Algorithm
   const calculateMatches = (targetWhisky) => {
-    // If clicking the same bottle, toggle it off
     if (activeMatch === targetWhisky.id) {
       setActiveMatch(null)
       return
     }
 
     const calculated = whiskies
-      .filter(w => w.id !== targetWhisky.id) // Don't match the bottle with itself
+      .filter(w => w.id !== targetWhisky.id)
       .map(w => {
-        // Euclidean distance across 4 flavor axes
         const distance = Math.sqrt(
           Math.pow(w.smoke_level - targetWhisky.smoke_level, 2) +
           Math.pow(w.wood_level - targetWhisky.wood_level, 2) +
@@ -47,17 +63,41 @@ function App() {
         )
         return { ...w, distance }
       })
-      .sort((a, b) => a.distance - b.distance) // Sort closest to furthest
-      .slice(0, 3) // Take the top 3 closest matches
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 3)
 
     setMatchResults(calculated)
     setActiveMatch(targetWhisky.id)
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen relative p-8">
+      {/* Top Navigation Bar */}
+      <div className="max-w-6xl mx-auto flex justify-end mb-4">
+        {isLoggedIn ? (
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-mono text-emerald-500 uppercase tracking-widest">
+              Vault Access Granted
+            </span>
+            <button
+              onClick={handleSignOut}
+              className="text-xs font-mono text-slate-400 hover:text-red-400 border border-white/10 hover:border-red-400/50 px-4 py-2 rounded-xl transition-all duration-300 uppercase tracking-widest"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="text-xs font-mono text-amber-500 hover:text-white border border-amber-500/20 hover:bg-white/5 px-4 py-2 rounded-xl transition-all duration-300 uppercase tracking-widest"
+          >
+            Sign In
+          </button>
+        )}
+      </div>
+
       {/* Hero Section */}
-      <div className="max-w-4xl mx-auto text-center py-16">
+      <div className="max-w-4xl mx-auto text-center py-10">
         <h1 className="text-5xl font-serif text-white mb-4">
           What are you pouring <span className="text-amber-500">next?</span>
         </h1>
@@ -106,7 +146,6 @@ function App() {
               />
             </div>
 
-            {/* Smart Match Button */}
             <button
               onClick={() => calculateMatches(whisky)}
               className="mt-auto w-full py-3 rounded-xl font-mono text-sm uppercase tracking-wider border border-white/10 text-slate-300 hover:bg-white/5 hover:text-amber-500 transition-colors"
@@ -114,7 +153,6 @@ function App() {
               {activeMatch === whisky.id ? "Close Matches" : "Find Similar Pours"}
             </button>
 
-            {/* Match Results Dropdown */}
             {activeMatch === whisky.id && (
               <div className="mt-4 p-4 bg-black/40 rounded-xl border border-amber-500/20">
                 <h4 className="text-amber-500 text-xs font-mono uppercase tracking-widest mb-3">Top Flavor Matches</h4>
@@ -137,6 +175,13 @@ function App() {
         ))}
       </div>
       <CollectorsVault />
+
+      {/*  Passed onLoginSuccess to the Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={() => setIsLoggedIn(true)}
+      />
     </div>
   )
 }
