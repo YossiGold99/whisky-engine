@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import RadarChart from './RadarChart'
+import CollectorsVault from './CollectorsVault'
 
 function App() {
   const [whiskies, setWhiskies] = useState([])
@@ -135,6 +136,7 @@ function App() {
           </div>
         ))}
       </div>
+      <CollectorsVault />
     </div>
   )
 }
