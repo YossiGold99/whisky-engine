@@ -77,7 +77,7 @@ function App() {
         {isLoggedIn ? (
           <div className="flex items-center gap-4">
             <span className="text-xs font-mono text-emerald-500 uppercase tracking-widest">
-              Vault Access Granted
+              Hello, Collector!
             </span>
             <button
               onClick={handleSignOut}
@@ -101,9 +101,9 @@ function App() {
         <h1 className="text-5xl font-serif text-white mb-4">
           What are you pouring <span className="text-amber-500">next?</span>
         </h1>
-        <p className="font-mono text-sm text-slate-400 mb-8">
+        {/* <p className="font-mono text-sm text-slate-400 mb-8">
           {loading ? "Analyzing flavor profiles..." : `API Connection: Live (${whiskies.length} bottles indexed)`}
-        </p>
+        </p> */}
 
         <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl shadow-2xl max-w-2xl mx-auto flex items-center gap-3">
           <input

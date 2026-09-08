@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Distillery, Whisky
+from .models import VaultItem
 
 class DistillerySerializer(serializers.ModelSerializer):
     class Meta:
@@ -32,3 +33,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password']
         )
         return user
+
+class VaultItemSerializer(serializers.ModelSerializer):
+    # This automatically includes the full whisky details so React can render the bottle cards!
+    whisky_detail = WhiskySerializer(source='whisky', read_only=True)
+
+    class Meta:
+        model = VaultItem
+        # Notice we don't include 'user' here—we will securely assign that in the view!
+        fields = ['id', 'whisky', 'whisky_detail', 'added_at', 'personal_rating', 'notes']
