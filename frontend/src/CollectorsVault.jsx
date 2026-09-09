@@ -3,16 +3,20 @@ import { useState, useEffect } from 'react'
 const CollectorsVault = () => {
     const [isOpen, setIsOpen] = useState(false)
     const [vaultBottles, setVaultBottles] = useState([])
-    const [catalogWhiskies, setCatalogWhiskies] = useState([]) //Stores available bottles for the dropdown
-    const [selectedWhiskyId, setSelectedWhiskyId] = useState('') //Tracks what you select in the dropdown
+    const [catalogWhiskies, setCatalogWhiskies] = useState([])
+    const [selectedWhiskyId, setSelectedWhiskyId] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
-    // Fetch from Django when vault is unlocked
+    // NEW: Journal Modal State
+    const [journalBottle, setJournalBottle] = useState(null)
+    const [editNotes, setEditNotes] = useState('')
+    const [editRating, setEditRating] = useState(0)
+
     useEffect(() => {
         if (isOpen) {
             fetchVaultItems()
-            fetchCatalog() // Load the dropdown options
+            fetchCatalog()
         }
     }, [isOpen])
 
@@ -36,8 +40,11 @@ const CollectorsVault = () => {
                 const formattedBottles = data.map(item => ({
                     id: item.id,
                     name: `${item.whisky_detail.distillery.name} - ${item.whisky_detail.name}`,
-                    status: "Vaulted",
-                    fill: "100%"
+                    status: item.status,
+                    fill: item.fill,
+                    // Pulling the new data from Django!
+                    notes: item.notes || '',
+                    rating: item.personal_rating || 0
                 }))
                 setVaultBottles(formattedBottles)
             } else {
@@ -50,7 +57,6 @@ const CollectorsVault = () => {
         }
     }
 
-    //Fetch all whiskies so the dropdown has options
     const fetchCatalog = async () => {
         try {
             const response = await fetch('http://127.0.0.1:8000/api/whiskies/')
@@ -63,11 +69,9 @@ const CollectorsVault = () => {
         }
     }
 
-    // Now posts the selected dropdown bottle to Django
     const handleAddBottle = async (e) => {
         e.preventDefault()
-
-        if (!selectedWhiskyId) return // Do nothing if no bottle is selected
+        if (!selectedWhiskyId) return
 
         const token = localStorage.getItem('vaultToken')
         try {
@@ -81,20 +85,16 @@ const CollectorsVault = () => {
             })
 
             if (response.ok) {
-                // Success! Re-fetch the vault to show the new bottle
                 fetchVaultItems()
-                setSelectedWhiskyId('') // Reset the dropdown back to default
+                setSelectedWhiskyId('')
             } else if (response.status === 400) {
                 alert('This bottle is already in your vault!')
-            } else {
-                alert('Failed to add bottle. Make sure you are logged in.')
             }
         } catch (err) {
             console.error("Error adding bottle", err)
         }
     }
 
-    // Deletes from the real Django database
     const handleDeleteBottle = async (id) => {
         const token = localStorage.getItem('vaultToken')
         try {
@@ -111,19 +111,67 @@ const CollectorsVault = () => {
         }
     }
 
-    // Function to change bottle status locally
-    const handleStatusChange = (id, newStatus) => {
-        setVaultBottles(vaultBottles.map(bottle => {
-            if (bottle.id === id) {
-                let newFill = bottle.fill
-                if (newStatus === "Empty") newFill = "0%"
-                else if (newStatus === "Vaulted") newFill = "100%"
-                else if (newStatus === "Open" && (bottle.fill === "100%" || bottle.fill === "0%")) newFill = "95%"
+    const handleStatusChange = async (id, newStatus) => {
+        let newFill = "100%"
+        const currentBottle = vaultBottles.find(b => b.id === id)
+        if (currentBottle) newFill = currentBottle.fill
 
-                return { ...bottle, status: newStatus, fill: newFill }
+        if (newStatus === "Empty") newFill = "0%"
+        else if (newStatus === "Vaulted") newFill = "100%"
+        else if (newStatus === "Open" && (newFill === "100%" || newFill === "0%")) newFill = "95%"
+
+        setVaultBottles(vaultBottles.map(bottle =>
+            bottle.id === id ? { ...bottle, status: newStatus, fill: newFill } : bottle
+        ))
+
+        const token = localStorage.getItem('vaultToken')
+        try {
+            await fetch(`http://127.0.0.1:8000/api/vault/${id}/`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Token ${token}`
+                },
+                body: JSON.stringify({ status: newStatus, fill: newFill })
+            })
+        } catch (err) {
+            console.error("Failed to save status", err)
+        }
+    }
+
+    //Open the modal and populate it with existing notes
+    const openJournal = (bottle) => {
+        setJournalBottle(bottle)
+        setEditNotes(bottle.notes)
+        setEditRating(bottle.rating)
+    }
+
+    // Save the notes/rating to Django securely
+    const handleSaveJournal = async () => {
+        const token = localStorage.getItem('vaultToken')
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/vault/${journalBottle.id}/`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Token ${token}`
+                },
+                body: JSON.stringify({
+                    personal_rating: editRating,
+                    notes: editNotes
+                })
+            })
+
+            if (response.ok) {
+                // Update UI instantly
+                setVaultBottles(vaultBottles.map(b =>
+                    b.id === journalBottle.id ? { ...b, notes: editNotes, rating: editRating } : b
+                ))
+                setJournalBottle(null) // Close modal
             }
-            return bottle
-        }))
+        } catch (err) {
+            console.error("Failed to save journal", err)
+        }
     }
 
     return (
@@ -191,7 +239,6 @@ const CollectorsVault = () => {
                             {error && <div className="text-red-400 text-xs font-mono mb-4">{error}</div>}
                             {loading && <div className="text-amber-500 text-xs font-mono mb-4 animate-pulse">Syncing with secure server...</div>}
 
-                            {/* UPDATED: Database-connected Dropdown Form */}
                             <form onSubmit={handleAddBottle} className="flex gap-2 mb-6">
                                 <select
                                     value={selectedWhiskyId}
@@ -218,10 +265,27 @@ const CollectorsVault = () => {
                             <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
                                 {vaultBottles.map(bottle => (
                                     <div key={bottle.id} className="flex justify-between items-center p-3 rounded-xl bg-black/30 border border-white/5 group hover:border-white/10 transition-colors">
-                                        <span className="font-serif text-sm text-white">{bottle.name}</span>
+
+                                        <div className="flex flex-col">
+                                            <span className="font-serif text-sm text-white">{bottle.name}</span>
+                                            {/* Show stars if rated! */}
+                                            {bottle.rating > 0 && (
+                                                <span className="text-amber-500 text-xs">
+                                                    {'★'.repeat(bottle.rating)}{'☆'.repeat(5 - bottle.rating)}
+                                                </span>
+                                            )}
+                                        </div>
 
                                         <div className="flex items-center gap-3">
-                                            <span className="text-xs font-mono text-slate-500">
+                                            {/* NEW: Journal Button */}
+                                            <button
+                                                onClick={() => openJournal(bottle)}
+                                                className="text-xs font-mono text-slate-400 hover:text-amber-500 border border-white/10 hover:border-amber-500/50 px-2 py-1 rounded transition-colors"
+                                            >
+                                                Journal
+                                            </button>
+
+                                            <span className="text-xs font-mono text-slate-500 w-10 text-center">
                                                 {bottle.fill}
                                             </span>
 
@@ -257,6 +321,57 @@ const CollectorsVault = () => {
                         </div>
                     )}
                 </div>
+
+                {/* NEW: Tasting Journal Modal */}
+                {journalBottle && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+                        <div className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-8 overflow-hidden text-left">
+
+                            <h3 className="text-2xl font-serif text-white mb-1">{journalBottle.name}</h3>
+                            <p className="text-amber-500 font-mono text-xs mb-6 uppercase tracking-widest">Tasting Journal</p>
+
+                            <div className="mb-6">
+                                <label className="block text-slate-400 text-xs font-mono mb-2 uppercase">Personal Rating</label>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                            key={star}
+                                            onClick={() => setEditRating(star)}
+                                            className={`text-3xl transition-colors ${editRating >= star ? 'text-amber-500' : 'text-slate-700 hover:text-amber-500/50'}`}
+                                        >
+                                            ★
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-slate-400 text-xs font-mono mb-2 uppercase">Tasting Notes</label>
+                                <textarea
+                                    value={editNotes}
+                                    onChange={(e) => setEditNotes(e.target.value)}
+                                    placeholder="Nose, palate, finish, and overall impressions..."
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500/50 min-h-[120px] resize-none"
+                                />
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleSaveJournal}
+                                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-mono text-xs uppercase tracking-wider font-bold py-3 rounded-xl transition-colors"
+                                >
+                                    Save Journal
+                                </button>
+                                <button
+                                    onClick={() => setJournalBottle(null)}
+                                    className="flex-1 bg-transparent border border-white/10 hover:border-white/30 text-white font-mono text-xs uppercase tracking-wider font-bold py-3 rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </section>
     )

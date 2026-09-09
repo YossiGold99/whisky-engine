@@ -40,3 +40,19 @@ class VaultItem(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.whisky.name}"
+
+class VaultItem(models.Model):
+    user =  models.ForeignKey(User, on_delete=models.CASCADE, related_name='vault_items')
+    whisky = models.ForeignKey(Whisky, on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+    personal_rating = models.IntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    status = models.CharField(max_length=20, default='vaulted')
+    fill = models.CharField(max_length=20, default='100%')
+
+    class Meta: 
+        unique_together = ('user', 'whisky')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.whisky.name}"

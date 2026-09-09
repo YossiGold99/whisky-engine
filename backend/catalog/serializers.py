@@ -35,10 +35,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 class VaultItemSerializer(serializers.ModelSerializer):
-    # This automatically includes the full whisky details so React can render the bottle cards!
+    # automatically includes the full whisky details so React can render the bottle cards!
     whisky_detail = WhiskySerializer(source='whisky', read_only=True)
 
     class Meta:
         model = VaultItem
-        # Notice we don't include 'user' here—we will securely assign that in the view!
-        fields = ['id', 'whisky', 'whisky_detail', 'added_at', 'personal_rating', 'notes']
+        fields = ['id', 'whisky', 'whisky_detail', 'added_at', 'personal_rating', 'notes', 'status', 'fill']
