@@ -6,7 +6,7 @@ from .models import VaultItem
 class DistillerySerializer(serializers.ModelSerializer):
     class Meta:
         model = Distillery
-        fields = ['id', 'name', 'region', 'country']
+        fields = '__all__'
 
 class WhiskySerializer(serializers.ModelSerializer):
     distillery = DistillerySerializer(read_only=True)
