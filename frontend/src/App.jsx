@@ -1,17 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import RadarChart from './RadarChart'
 import CollectorsVault from './CollectorsVault'
 import AuthModal from './AuthModal'
 
 function App() {
-  const [whiskies, setWhiskies] = useState([])
+  const [allWhiskies, setAllWhiskies] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // Advanced Filter States
   const [searchTerm, setSearchTerm] = useState('')
+  const [peatedOnly, setPeatedOnly] = useState(false)
+  const [caskStrengthOnly, setCaskStrengthOnly] = useState(false)
+  const [minSmoke, setMinSmoke] = useState(0)
+
   const [activeMatch, setActiveMatch] = useState(null)
   const [matchResults, setMatchResults] = useState([])
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
-  // State to track if the user is logged in
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   // Check local storage for the token when the app loads
@@ -22,29 +27,50 @@ function App() {
     }
   }, [])
 
-  // Handle signing out
   const handleSignOut = () => {
     localStorage.removeItem('vaultToken')
     setIsLoggedIn(false)
   }
 
+  // Fetch ALL whiskies once on initial load
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setLoading(true)
-      fetch(`http://127.0.0.1:8000/api/whiskies/?search=${searchTerm}`)
-        .then(response => response.json())
-        .then(data => {
-          setWhiskies(data)
-          setLoading(false)
-        })
-        .catch(error => {
-          console.error('Error fetching whisky data:', error)
-          setLoading(false)
-        })
-    }, 300)
+    setLoading(true)
+    fetch(`http://127.0.0.1:8000/api/whiskies/`)
+      .then(response => response.json())
+      .then(data => {
+        setAllWhiskies(data)
+        setLoading(false)
+      })
+      .catch(error => {
+        console.error('Error fetching whisky data:', error)
+        setLoading(false)
+      })
+  }, [])
 
-    return () => clearTimeout(delayDebounceFn)
-  }, [searchTerm])
+  // Instant In-Memory Filtering
+  const filteredWhiskies = useMemo(() => {
+    return allWhiskies.filter(whisky => {
+      const distilleryName = whisky.distillery?.name || ''
+      const matchesSearch =
+        whisky.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        distilleryName.toLowerCase().includes(searchTerm.toLowerCase())
+
+      const matchesPeat = !peatedOnly || whisky.is_peated
+      const matchesCask = !caskStrengthOnly || whisky.is_cask_strength
+      const matchesSmoke = (whisky.smoke_level ?? 0) >= minSmoke
+
+      return matchesSearch && matchesPeat && matchesCask && matchesSmoke
+    })
+  }, [allWhiskies, searchTerm, peatedOnly, caskStrengthOnly, minSmoke])
+
+  const handleResetFilters = () => {
+    setSearchTerm('')
+    setPeatedOnly(false)
+    setCaskStrengthOnly(false)
+    setMinSmoke(0)
+  }
+
+  const hasActiveFilters = searchTerm || peatedOnly || caskStrengthOnly || minSmoke > 0
 
   const calculateMatches = (targetWhisky) => {
     if (activeMatch === targetWhisky.id) {
@@ -52,7 +78,8 @@ function App() {
       return
     }
 
-    const calculated = whiskies
+    // Search against ALL whiskies, not just the filtered view
+    const calculated = allWhiskies
       .filter(w => w.id !== targetWhisky.id)
       .map(w => {
         const distance = Math.sqrt(
@@ -101,32 +128,110 @@ function App() {
         <h1 className="text-5xl font-serif text-white mb-4">
           What are you pouring <span className="text-amber-500">next?</span>
         </h1>
-        {/* <p className="font-mono text-sm text-slate-400 mb-8">
-          {loading ? "Analyzing flavor profiles..." : `API Connection: Live (${whiskies.length} bottles indexed)`}
-        </p> */}
 
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl shadow-2xl max-w-2xl mx-auto flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Search distillery, region, or cask style..."
-            className="w-full bg-transparent border-none text-white px-4 py-2 focus:outline-none font-mono text-sm placeholder:text-slate-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <button className="bg-amber-500 text-slate-900 px-6 py-2 rounded-xl font-bold hover:bg-amber-600 transition-all duration-300">
-            Search
-          </button>
+        {/* NEW ADVANCED FILTER BAR */}
+        <div className="bg-slate-900/60 border border-white/10 backdrop-blur-md rounded-2xl p-6 mt-8 shadow-xl text-left">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+
+            {/* Search Input */}
+            <div className="md:col-span-5">
+              <label className="block text-xs font-mono uppercase text-slate-400 mb-1">
+                Search Vault
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Distillery, expression..."
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500/50"
+              />
+            </div>
+
+            {/* Boolean Toggles */}
+            <div className="md:col-span-4 flex items-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPeatedOnly(!peatedOnly)}
+                className={`flex-1 py-2.5 px-3 rounded-xl font-mono text-xs font-semibold uppercase tracking-wider transition-colors border ${peatedOnly
+                    ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                    : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'
+                  }`}
+              >
+                Peated
+              </button>
+              <button
+                type="button"
+                onClick={() => setCaskStrengthOnly(!caskStrengthOnly)}
+                className={`flex-1 py-2.5 px-3 rounded-xl font-mono text-xs font-semibold uppercase tracking-wider transition-colors border ${caskStrengthOnly
+                    ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                    : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'
+                  }`}
+              >
+                Cask Str.
+              </button>
+            </div>
+
+            {/* Min Smoke Slider */}
+            <div className="md:col-span-3">
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-mono uppercase text-slate-400">
+                  Min Smoke
+                </label>
+                <span className="text-xs font-mono text-amber-500 font-bold">
+                  {minSmoke}/10
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                value={minSmoke}
+                onChange={(e) => setMinSmoke(Number(e.target.value))}
+                className="w-full accent-amber-500 bg-black/40 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Status bar */}
+          <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center text-xs font-mono">
+            <span className="text-slate-400">
+              Showing <strong className="text-white">{filteredWhiskies.length}</strong> of {allWhiskies.length} expressions
+            </span>
+            {hasActiveFilters && (
+              <button
+                onClick={handleResetFilters}
+                className="text-amber-500 hover:text-amber-400 transition-colors"
+              >
+                [ Clear Filters ]
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Dynamic Whisky Feed */}
-      <div className="max-w-6xl mx-auto mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-        {whiskies.map(whisky => (
+      <div className="max-w-6xl mx-auto mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {filteredWhiskies.length === 0 && !loading && (
+          <div className="col-span-full text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
+            <p className="text-slate-400 font-mono text-sm mb-3">
+              No bottles match your active search criteria.
+            </p>
+            <button
+              onClick={handleResetFilters}
+              className="text-xs font-mono uppercase tracking-wider text-amber-500 hover:underline"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
+
+        {/* Note the mapping is now over filteredWhiskies instead of whiskies */}
+        {filteredWhiskies.map(whisky => (
           <div key={whisky.id} className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-xl transition-all duration-300 flex flex-col">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <span className="text-xs font-mono uppercase tracking-widest text-amber-500">
-                  {whisky.distillery?.region} • {whisky.cask_type || "Standard Cask"}
+                  {whisky.distillery?.region || 'Global'} • {whisky.cask_type || "Standard Cask"}
                 </span>
                 <h3 className="text-2xl font-serif text-white mt-1">
                   {whisky.distillery?.name} {whisky.name}
@@ -176,7 +281,6 @@ function App() {
       </div>
       <CollectorsVault />
 
-      {/*  Passed onLoginSuccess to the Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
