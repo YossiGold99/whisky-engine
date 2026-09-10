@@ -21,14 +21,14 @@ function App() {
 
   // Check local storage for the token when the app loads
   useEffect(() => {
-    const token = localStorage.getItem('vaultToken')
+    const token = sessionStorage.getItem('vaultToken')
     if (token) {
       setIsLoggedIn(true)
     }
   }, [])
 
   const handleSignOut = () => {
-    localStorage.removeItem('vaultToken')
+    sessionStorage.removeItem('vaultToken')
     setIsLoggedIn(false)
   }
 

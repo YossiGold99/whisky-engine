@@ -26,7 +26,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
                 if (response.ok) {
                     // Success! Save the token to local storage
-                    localStorage.setItem('vaultToken', data.token)
+                    sessionStorage.setItem('vaultToken', data.token)
                     console.log("Secure token received:", data.token)
 
                     // Tell the main App that we are logged in!
@@ -58,7 +58,7 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
                 if (response.ok) {
                     // Success! User is created and we got a token back instantly
-                    localStorage.setItem('vaultToken', data.token)
+                    sessionStorage.setItem('vaultToken', data.token)
                     console.log("New account created! Token:", data.token)
 
                     if (onClose) onClose()
