@@ -1,7 +1,26 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Distillery, Whisky
-from .models import VaultItem
+from .models import Distillery, Whisky, VaultItem
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username']
+
+class RegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'password']
+        # Ensure the password is never sent back to the frontend
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        # Using create_user ensures the password is automatically securely hashed!
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password']
+        )
+        return user
 
 class DistillerySerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,23 +38,8 @@ class WhiskySerializer(serializers.ModelSerializer):
             'is_peated', 'is_cask_strength'
         ]
 
-class RegisterSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('username', 'password')
-        # Ensure the password is never sent back to the frontend
-        extra_kwargs = {'password': {'write_only': True}}
-
-    def create(self, validated_data):
-        # Using create_user ensures the password is automatically securely hashed!
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            password=validated_data['password']
-        )
-        return user
-
 class VaultItemSerializer(serializers.ModelSerializer):
-    # automatically includes the full whisky details so React can render the bottle cards!
+    # Automatically includes the full whisky details so React can render the bottle cards!
     whisky_detail = WhiskySerializer(source='whisky', read_only=True)
 
     class Meta:
