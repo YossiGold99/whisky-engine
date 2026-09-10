@@ -9,6 +9,7 @@ from .serializers import RegisterSerializer
 from rest_framework.permissions import IsAuthenticated
 from .models import VaultItem
 from .serializers import VaultItemSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 class DistilleryViewSet(viewsets.ModelViewSet):
     queryset = Distillery.objects.all()
@@ -22,16 +23,20 @@ class WhiskyViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny]) # Anyone can access the registration page
+@permission_classes([AllowAny])
 def register_user(request):
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
-        # Generate the auth token for the new user immediately
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({'token': token.key}, status=201)
+        
+        # Generate JWT pair for the new user instantly
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }, status=201)
     
-    # If the username is taken, return the exact error
     return Response(serializer.errors, status=400)
 
 class VaultItemViewSet(viewsets.ModelViewSet):

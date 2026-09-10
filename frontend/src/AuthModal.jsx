@@ -25,11 +25,11 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 const data = await response.json()
 
                 if (response.ok) {
-                    // Success! Save the token to local storage
-                    sessionStorage.setItem('vaultToken', data.token)
-                    console.log("Secure token received:", data.token)
+                    // NEW: Snatch the JWT access token instead of the basic token
+                    sessionStorage.setItem('vaultToken', data.access)
+                    console.log("Secure JWT received:", data.access)
 
-                    // Tell the main App that we are logged in!
+                    // Tell the main App that we are logged in
                     if (onClose) onClose()
                     if (onLoginSuccess) onLoginSuccess()
 
@@ -37,7 +37,6 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                     setUsername('')
                     setPassword('')
                 } else {
-                    // Django rejected the credentials
                     setErrorMsg('Invalid username or password.')
                 }
             } catch (err) {
@@ -57,9 +56,9 @@ const AuthModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 const data = await response.json()
 
                 if (response.ok) {
-                    // Success! User is created and we got a token back instantly
-                    sessionStorage.setItem('vaultToken', data.token)
-                    console.log("New account created! Token:", data.token)
+                    // NEW: Snatch the JWT access token here too
+                    sessionStorage.setItem('vaultToken', data.access)
+                    console.log("New account created! JWT:", data.access)
 
                     if (onClose) onClose()
                     if (onLoginSuccess) onLoginSuccess()

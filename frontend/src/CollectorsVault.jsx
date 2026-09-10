@@ -32,7 +32,8 @@ const CollectorsVault = () => {
 
         try {
             const response = await fetch('http://127.0.0.1:8000/api/vault/', {
-                headers: { 'Authorization': `Token ${token}` }
+                // Using Bearer token format for JWT
+                headers: { 'Authorization': `Bearer ${token}` }
             })
 
             if (response.ok) {
@@ -78,7 +79,8 @@ const CollectorsVault = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Token ${token}`
+                    // Using Bearer token format for JWT
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ whisky: selectedWhiskyId })
             })
@@ -99,7 +101,8 @@ const CollectorsVault = () => {
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/vault/${id}/`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Token ${token}` }
+                // Using Bearer token format for JWT
+                headers: { 'Authorization': `Bearer ${token}` }
             })
 
             if (response.ok) {
@@ -129,7 +132,8 @@ const CollectorsVault = () => {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Token ${token}`
+                    //Using Bearer token format for JWT
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ status: newStatus, fill: newFill })
             })
@@ -151,7 +155,8 @@ const CollectorsVault = () => {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Token ${token}`
+                    // Using Bearer token format for JWT
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     personal_rating: editRating,
