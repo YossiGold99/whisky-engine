@@ -8,7 +8,7 @@ const CollectorsVault = () => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
-    // NEW: Journal Modal State
+    // Journal Modal State
     const [journalBottle, setJournalBottle] = useState(null)
     const [editNotes, setEditNotes] = useState('')
     const [editRating, setEditRating] = useState(0)
@@ -22,7 +22,7 @@ const CollectorsVault = () => {
 
     const fetchVaultItems = async () => {
         setLoading(true)
-        const token = localStorage.getItem('vaultToken')
+        const token = sessionStorage.getItem('vaultToken')
 
         if (!token) {
             setError('Please sign in to view your vault.')
@@ -42,7 +42,6 @@ const CollectorsVault = () => {
                     name: `${item.whisky_detail.distillery.name} - ${item.whisky_detail.name}`,
                     status: item.status,
                     fill: item.fill,
-                    // Pulling the new data from Django!
                     notes: item.notes || '',
                     rating: item.personal_rating || 0
                 }))
@@ -73,7 +72,7 @@ const CollectorsVault = () => {
         e.preventDefault()
         if (!selectedWhiskyId) return
 
-        const token = localStorage.getItem('vaultToken')
+        const token = sessionStorage.getItem('vaultToken')
         try {
             const response = await fetch('http://127.0.0.1:8000/api/vault/', {
                 method: 'POST',
@@ -96,7 +95,7 @@ const CollectorsVault = () => {
     }
 
     const handleDeleteBottle = async (id) => {
-        const token = localStorage.getItem('vaultToken')
+        const token = sessionStorage.getItem('vaultToken')
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/vault/${id}/`, {
                 method: 'DELETE',
@@ -124,7 +123,7 @@ const CollectorsVault = () => {
             bottle.id === id ? { ...bottle, status: newStatus, fill: newFill } : bottle
         ))
 
-        const token = localStorage.getItem('vaultToken')
+        const token = sessionStorage.getItem('vaultToken')
         try {
             await fetch(`http://127.0.0.1:8000/api/vault/${id}/`, {
                 method: 'PATCH',
@@ -139,16 +138,14 @@ const CollectorsVault = () => {
         }
     }
 
-    //Open the modal and populate it with existing notes
     const openJournal = (bottle) => {
         setJournalBottle(bottle)
         setEditNotes(bottle.notes)
         setEditRating(bottle.rating)
     }
 
-    // Save the notes/rating to Django securely
     const handleSaveJournal = async () => {
-        const token = localStorage.getItem('vaultToken')
+        const token = sessionStorage.getItem('vaultToken')
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/vault/${journalBottle.id}/`, {
                 method: 'PATCH',
@@ -163,11 +160,10 @@ const CollectorsVault = () => {
             })
 
             if (response.ok) {
-                // Update UI instantly
                 setVaultBottles(vaultBottles.map(b =>
                     b.id === journalBottle.id ? { ...b, notes: editNotes, rating: editRating } : b
                 ))
-                setJournalBottle(null) // Close modal
+                setJournalBottle(null) 
             }
         } catch (err) {
             console.error("Failed to save journal", err)
@@ -268,7 +264,6 @@ const CollectorsVault = () => {
 
                                         <div className="flex flex-col">
                                             <span className="font-serif text-sm text-white">{bottle.name}</span>
-                                            {/* Show stars if rated! */}
                                             {bottle.rating > 0 && (
                                                 <span className="text-amber-500 text-xs">
                                                     {'★'.repeat(bottle.rating)}{'☆'.repeat(5 - bottle.rating)}
@@ -277,7 +272,6 @@ const CollectorsVault = () => {
                                         </div>
 
                                         <div className="flex items-center gap-3">
-                                            {/* NEW: Journal Button */}
                                             <button
                                                 onClick={() => openJournal(bottle)}
                                                 className="text-xs font-mono text-slate-400 hover:text-amber-500 border border-white/10 hover:border-amber-500/50 px-2 py-1 rounded transition-colors"
@@ -322,7 +316,6 @@ const CollectorsVault = () => {
                     )}
                 </div>
 
-                {/* NEW: Tasting Journal Modal */}
                 {journalBottle && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
                         <div className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-8 overflow-hidden text-left">
