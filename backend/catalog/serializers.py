@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Distillery, Whisky, VaultItem
+from .models import Distillery, Flight, Whisky, VaultItem
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -45,3 +45,12 @@ class VaultItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = VaultItem
         fields = ['id', 'whisky', 'whisky_detail', 'added_at', 'personal_rating', 'notes', 'status', 'fill']
+
+class FlightSerializer(serializers.ModelSerializer):
+    # automatically packages the full whisky data (name, ABV, smoke_level, etc.) for the frontend
+    whiskies_detail = WhiskySerializer(source='whiskies', many=True, read_only=True)
+
+    class Meta:
+        model= Flight
+        fields = ['id', 'user', 'name', 'whiskies', 'whiskies_detail', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']  # user and created_at are set automatically, not by the client

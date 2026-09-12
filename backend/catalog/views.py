@@ -1,14 +1,18 @@
 from rest_framework import viewsets, filters
-from .models import Distillery, Whisky
+from .models import Distillery, Whisky, VaultItem, Distillery, Whisky, VaultItem, Flight
 from .serializers import DistillerySerializer, WhiskySerializer
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-from .serializers import RegisterSerializer
-from rest_framework.permissions import IsAuthenticated
-from .models import VaultItem
-from .serializers import VaultItemSerializer
+from .serializers import (
+    DistillerySerializer, 
+    WhiskySerializer, 
+    VaultItemSerializer,
+    RegisterSerializer,
+    UserSerializer,
+    FlightSerializer
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 
 class DistilleryViewSet(viewsets.ModelViewSet):
@@ -49,4 +53,14 @@ class VaultItemViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # When React sends a bottle to save, secretly attach the logged-in user to it
+        serializer.save(user=self.request.user)
+
+class FlightViewSet(viewsets.ModelViewSet):
+    queryset = Flight.objects.all()
+    serializer_class = FlightSerializer
+    # CRITICAL: Anyone can view (GET), but only logged-in users can create/edit (POST/PATCH)
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        # Automatically attach the creator to the flight
         serializer.save(user=self.request.user)

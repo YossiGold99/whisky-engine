@@ -1,3 +1,4 @@
+import uuid 
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -42,3 +43,13 @@ class VaultItem(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.whisky.name}"
+
+class Flight(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE,)
+    name = models.CharField(max_length=200,)
+    whiskies = models.ManyToManyField(Whisky, related_name='flights')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} by {self.user.username}"

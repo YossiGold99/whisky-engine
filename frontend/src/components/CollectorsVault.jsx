@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 
 const CollectorsVault = () => {
     const [isOpen, setIsOpen] = useState(false)
@@ -12,6 +13,13 @@ const CollectorsVault = () => {
     const [journalBottle, setJournalBottle] = useState(null)
     const [editNotes, setEditNotes] = useState('')
     const [editRating, setEditRating] = useState(0)
+
+    // Flight Builder State
+    const [flightName, setFlightName] = useState('')
+    const [flightDescription, setFlightDescription] = useState('')
+    const [selectedFlightBottles, setSelectedFlightBottles] = useState([])
+    const [generatedFlightLink, setGeneratedFlightLink] = useState('')
+    const [isCreatingFlight, setIsCreatingFlight] = useState(false)
 
     useEffect(() => {
         if (isOpen) {
@@ -32,7 +40,6 @@ const CollectorsVault = () => {
 
         try {
             const response = await fetch('http://127.0.0.1:8000/api/vault/', {
-                // Using Bearer token format for JWT
                 headers: { 'Authorization': `Bearer ${token}` }
             })
 
@@ -40,6 +47,7 @@ const CollectorsVault = () => {
                 const data = await response.json()
                 const formattedBottles = data.map(item => ({
                     id: item.id,
+                    whisky_id: item.whisky_detail.id, // Needed for flight building
                     name: `${item.whisky_detail.distillery.name} - ${item.whisky_detail.name}`,
                     status: item.status,
                     fill: item.fill,
@@ -79,7 +87,6 @@ const CollectorsVault = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Using Bearer token format for JWT
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ whisky: selectedWhiskyId })
@@ -101,12 +108,13 @@ const CollectorsVault = () => {
         try {
             const response = await fetch(`http://127.0.0.1:8000/api/vault/${id}/`, {
                 method: 'DELETE',
-                // Using Bearer token format for JWT
                 headers: { 'Authorization': `Bearer ${token}` }
             })
 
             if (response.ok) {
                 setVaultBottles(vaultBottles.filter(bottle => bottle.id !== id))
+                // Also remove it from the flight builder if it was selected
+                setSelectedFlightBottles(selectedFlightBottles.filter(bId => bId !== vaultBottles.find(b => b.id === id).whisky_id))
             }
         } catch (err) {
             console.error("Failed to delete", err)
@@ -132,7 +140,6 @@ const CollectorsVault = () => {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    //Using Bearer token format for JWT
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ status: newStatus, fill: newFill })
@@ -155,7 +162,6 @@ const CollectorsVault = () => {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Using Bearer token format for JWT
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
@@ -168,10 +174,64 @@ const CollectorsVault = () => {
                 setVaultBottles(vaultBottles.map(b =>
                     b.id === journalBottle.id ? { ...b, notes: editNotes, rating: editRating } : b
                 ))
-                setJournalBottle(null) 
+                setJournalBottle(null)
             }
         } catch (err) {
             console.error("Failed to save journal", err)
+        }
+    }
+
+    // Flight Builder Logic
+    const toggleFlightBottle = (whisky_id) => {
+        if (selectedFlightBottles.includes(whisky_id)) {
+            setSelectedFlightBottles(selectedFlightBottles.filter(id => id !== whisky_id))
+        } else {
+            if (selectedFlightBottles.length < 5) {
+                setSelectedFlightBottles([...selectedFlightBottles, whisky_id])
+            } else {
+                alert("Maximum 5 bottles per flight!")
+            }
+        }
+    }
+
+    const handleCreateFlight = async (e) => {
+        e.preventDefault()
+        if (selectedFlightBottles.length === 0 || !flightName) return
+
+        setIsCreatingFlight(true)
+        const token = sessionStorage.getItem('vaultToken')
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/api/flights/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: flightName,
+                    description: flightDescription,
+                    whiskies: selectedFlightBottles
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                setGeneratedFlightLink(`/flight/${data.id}`)
+                setFlightName('')
+                setFlightDescription('')
+                setSelectedFlightBottles([])
+            } else {
+                // Catch and display the hidden backend error!
+                const errorData = await response.json()
+                console.error("Backend Error:", errorData)
+                alert(`Django says: ${JSON.stringify(errorData)}`)
+            }
+        } catch (err) {
+            console.error("Error creating flight", err)
+            alert("Failed to connect to the server.")
+        } finally {
+            setIsCreatingFlight(false)
         }
     }
 
@@ -211,12 +271,12 @@ const CollectorsVault = () => {
                     </div>
                 </div>
 
-                <div className="relative rounded-2xl p-8 border border-white/10 bg-white/[0.02] backdrop-blur-sm max-w-xl mx-auto">
+                <div className="relative rounded-2xl p-8 border border-white/10 bg-white/[0.02] backdrop-blur-sm max-w-2xl mx-auto">
                     {!isOpen ? (
                         <div>
                             <h3 className="text-xl font-serif text-white mb-2">Access Your Curated Cabinet</h3>
                             <p className="text-slate-400 text-xs font-mono mb-6">
-                                Open your private vault session to add bottles, update statuses, and clear empty inventory.
+                                Open your private vault session to add bottles, update statuses, and create curated tasting flights.
                             </p>
                             <button
                                 onClick={() => setIsOpen(true)}
@@ -230,7 +290,10 @@ const CollectorsVault = () => {
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-lg font-serif text-white">Active Vault Inventory</h3>
                                 <button
-                                    onClick={() => setIsOpen(false)}
+                                    onClick={() => {
+                                        setIsOpen(false)
+                                        setGeneratedFlightLink('') // Reset link on close
+                                    }}
                                     className="text-xs font-mono text-slate-400 hover:text-amber-500"
                                 >
                                     [ Lock Vault ]
@@ -263,71 +326,138 @@ const CollectorsVault = () => {
                                 </button>
                             </form>
 
-                            <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
-                                {vaultBottles.map(bottle => (
-                                    <div key={bottle.id} className="flex justify-between items-center p-3 rounded-xl bg-black/30 border border-white/5 group hover:border-white/10 transition-colors">
+                            <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1 mb-8">
+                                {vaultBottles.map(bottle => {
+                                    const isSelectedForFlight = selectedFlightBottles.includes(bottle.whisky_id)
+                                    return (
+                                        <div key={bottle.id} className={`flex justify-between items-center p-3 rounded-xl bg-black/30 border transition-colors group ${isSelectedForFlight ? 'border-amber-500/50' : 'border-white/5 hover:border-white/10'}`}>
 
-                                        <div className="flex flex-col">
-                                            <span className="font-serif text-sm text-white">{bottle.name}</span>
-                                            {bottle.rating > 0 && (
-                                                <span className="text-amber-500 text-xs">
-                                                    {'★'.repeat(bottle.rating)}{'☆'.repeat(5 - bottle.rating)}
+                                            <div className="flex items-center gap-3">
+                                                {/* NEW: Flight Selection Checkbox */}
+                                                <button
+                                                    onClick={() => toggleFlightBottle(bottle.whisky_id)}
+                                                    className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelectedForFlight ? 'bg-amber-500 border-amber-500 text-slate-950' : 'border-white/20 hover:border-amber-500/50 text-transparent'}`}
+                                                >
+                                                    ✓
+                                                </button>
+                                                <div className="flex flex-col">
+                                                    <span className="font-serif text-sm text-white">{bottle.name}</span>
+                                                    {bottle.rating > 0 && (
+                                                        <span className="text-amber-500 text-xs">
+                                                            {'★'.repeat(bottle.rating)}{'☆'.repeat(5 - bottle.rating)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={() => openJournal(bottle)}
+                                                    className="text-xs font-mono text-slate-400 hover:text-amber-500 border border-white/10 hover:border-amber-500/50 px-2 py-1 rounded transition-colors"
+                                                >
+                                                    Journal
+                                                </button>
+
+                                                <span className="text-xs font-mono text-slate-500 w-10 text-center">
+                                                    {bottle.fill}
                                                 </span>
-                                            )}
+
+                                                <select
+                                                    value={bottle.status}
+                                                    onChange={(e) => handleStatusChange(bottle.id, e.target.value)}
+                                                    className={`text-xs font-mono px-2 py-1 rounded outline-none border border-transparent hover:border-white/10 cursor-pointer ${bottle.status === 'Empty' ? 'bg-red-500/10 text-red-400' :
+                                                        bottle.status === 'Vaulted' ? 'bg-amber-500/10 text-amber-500' :
+                                                            'bg-emerald-500/10 text-emerald-400'
+                                                        }`}
+                                                >
+                                                    <option value="Vaulted" className="bg-slate-900 text-white">Vaulted</option>
+                                                    <option value="Open" className="bg-slate-900 text-white">Open</option>
+                                                    <option value="Empty" className="bg-slate-900 text-white">Empty</option>
+                                                </select>
+
+                                                <button
+                                                    onClick={() => handleDeleteBottle(bottle.id)}
+                                                    className="text-slate-600 hover:text-red-500 transition-colors px-1 text-lg opacity-0 group-hover:opacity-100"
+                                                    title="Delete Bottle"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
                                         </div>
-
-                                        <div className="flex items-center gap-3">
-                                            <button
-                                                onClick={() => openJournal(bottle)}
-                                                className="text-xs font-mono text-slate-400 hover:text-amber-500 border border-white/10 hover:border-amber-500/50 px-2 py-1 rounded transition-colors"
-                                            >
-                                                Journal
-                                            </button>
-
-                                            <span className="text-xs font-mono text-slate-500 w-10 text-center">
-                                                {bottle.fill}
-                                            </span>
-
-                                            <select
-                                                value={bottle.status}
-                                                onChange={(e) => handleStatusChange(bottle.id, e.target.value)}
-                                                className={`text-xs font-mono px-2 py-1 rounded outline-none border border-transparent hover:border-white/10 cursor-pointer ${bottle.status === 'Empty' ? 'bg-red-500/10 text-red-400' :
-                                                    bottle.status === 'Vaulted' ? 'bg-amber-500/10 text-amber-500' :
-                                                        'bg-emerald-500/10 text-emerald-400'
-                                                    }`}
-                                            >
-                                                <option value="Vaulted" className="bg-slate-900 text-white">Vaulted</option>
-                                                <option value="Open" className="bg-slate-900 text-white">Open</option>
-                                                <option value="Empty" className="bg-slate-900 text-white">Empty</option>
-                                            </select>
-
-                                            <button
-                                                onClick={() => handleDeleteBottle(bottle.id)}
-                                                className="text-slate-600 hover:text-red-500 transition-colors px-1 text-lg opacity-0 group-hover:opacity-100"
-                                                title="Delete Bottle"
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                                 {!loading && vaultBottles.length === 0 && (
                                     <div className="text-center py-4 text-slate-500 font-mono text-xs">
                                         Your vault is completely empty.
                                     </div>
                                 )}
                             </div>
+
+                            {/* Flight Builder Panel */}
+                            <div className="border-t border-white/10 pt-6 mt-6">
+                                <h3 className="text-lg font-serif text-white mb-2">Curate a Tasting Flight</h3>
+                                <p className="text-slate-400 text-xs font-mono mb-4">
+                                    Select up to 5 bottles from your inventory above using the checkboxes, give the lineup a name, and generate a shareable digital menu.
+                                </p>
+
+                                {generatedFlightLink ? (
+                                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-center">
+                                        <p className="text-emerald-400 text-xs font-mono mb-2 uppercase tracking-widest">Menu Generated Successfully</p>
+                                        <Link
+                                            to={generatedFlightLink}
+                                            target="_blank"
+                                            className="text-white hover:text-amber-500 font-serif text-lg underline decoration-amber-500/50 underline-offset-4 transition-colors"
+                                        >
+                                            Open Digital Menu in New Tab
+                                        </Link>
+                                        <button
+                                            onClick={() => setGeneratedFlightLink('')}
+                                            className="block mx-auto mt-4 text-xs font-mono text-slate-500 hover:text-white"
+                                        >
+                                            Create Another Flight
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleCreateFlight} className="flex flex-col gap-3">
+                                        <input
+                                            type="text"
+                                            placeholder="Flight Name (e.g., The Islay Exploration)"
+                                            value={flightName}
+                                            onChange={(e) => setFlightName(e.target.value)}
+                                            required
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500/50"
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Description or Theme (Optional)"
+                                            value={flightDescription}
+                                            onChange={(e) => setFlightDescription(e.target.value)}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500/50"
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={selectedFlightBottles.length === 0 || isCreatingFlight}
+                                            className={`w-full py-3 rounded-xl font-mono text-xs font-bold uppercase tracking-widest transition-all ${selectedFlightBottles.length > 0
+                                                ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-lg shadow-amber-500/20'
+                                                : 'bg-white/5 text-slate-500 cursor-not-allowed border border-white/10'
+                                                }`}
+                                        >
+                                            {isCreatingFlight ? 'Generating Link...' : `Generate Shareable Link (${selectedFlightBottles.length}/5 Bottles)`}
+                                        </button>
+                                    </form>
+                                )}
+                            </div>
+
                         </div>
                     )}
                 </div>
 
+                {/* Journal Modal Remains */}
                 {journalBottle && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
                         <div className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-8 overflow-hidden text-left">
-
                             <h3 className="text-2xl font-serif text-white mb-1">{journalBottle.name}</h3>
                             <p className="text-amber-500 font-mono text-xs mb-6 uppercase tracking-widest">Tasting Journal</p>
-
                             <div className="mb-6">
                                 <label className="block text-slate-400 text-xs font-mono mb-2 uppercase">Personal Rating</label>
                                 <div className="flex gap-2">
@@ -342,7 +472,6 @@ const CollectorsVault = () => {
                                     ))}
                                 </div>
                             </div>
-
                             <div className="mb-6">
                                 <label className="block text-slate-400 text-xs font-mono mb-2 uppercase">Tasting Notes</label>
                                 <textarea
@@ -352,7 +481,6 @@ const CollectorsVault = () => {
                                     className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500/50 min-h-[120px] resize-none"
                                 />
                             </div>
-
                             <div className="flex gap-3">
                                 <button
                                     onClick={handleSaveJournal}

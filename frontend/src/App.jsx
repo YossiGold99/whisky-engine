@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import RadarChart from './RadarChart'
-import CollectorsVault from './CollectorsVault'
-import AuthModal from './AuthModal'
+import RadarChart from "./components/RadarChart";
+import CollectorsVault from './components/CollectorsVault'
+import AuthModal from './components/AuthModal'
 
 function App() {
   const [allWhiskies, setAllWhiskies] = useState([])
